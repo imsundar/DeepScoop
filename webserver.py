@@ -1,5 +1,6 @@
 # Web controller application which anchors asupmate 
 
+# RAG TOOLs works as follows : 
 # The RAG Setup: In S3 we have cluster logs saved based on cluster id. 
 # We vectorise those logs and save them in faiss db. When the user queries 
 # for information, we look up the faiss db for data related to user's cluster 
@@ -12,12 +13,12 @@ from dataprocess import *
 from webexIntegration import *
 from AwsS3 import *
 from redisHandler import *
+from agent import *
 
 
 # Flask app setup
 app = Flask(__name__)
 app.debug = False
-
 
 
 # *************************************************************
@@ -107,7 +108,7 @@ def handle_webex_message():
                 },
                 {
                     "type": "Action.OpenUrl",
-                    "title": "chat with your document",
+                    "title": "Upload standalone logs",
                     "url": "http://44.204.10.189:5000/upload"
                 }
             ]
@@ -142,16 +143,25 @@ def handle_webex_message():
 #endpoint to handle custom file uploads
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_file():
-    if request.method == 'POST':
-        file = request.files['file']
-        if file:
-            file_path = os.path.join(UPLOAD_FOLDER, file.filename)
-            # Doing this just so that vectorisation logic doesnt needs to be changed. 
-            folder_path = file_path.split('.')[0]
-            os.makedirs(folder_path, exist_ok=True)
-            file.save(os.path.join(folder_path, file.filename))
-            update_vectors(file.filename, True, True)
-            return jsonify({"message": "File uploaded & vectorised successfully", "file": file.filename})
+    if request.method == 'POST':        
+        full_path = ''
+        files = request.files.getlist('files')  # Get multiple files
+
+        if not files or files[0].filename == '':
+            return jsonify({"error": "No files selected"}), 400    
+        
+        for file in files:
+            relative_path = file.filename  # This may include subfolder info
+            full_path = os.path.join(UPLOAD_FOLDER, relative_path)
+            full_path = os.path.normpath(full_path)  # Ensure correct slashes
+            
+            # Create necessary subdirectories before saving the file
+            os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+            file.save(full_path)  # Save file correctly        
+            
+        update_vectors(os.path.dirname(file.filename), True, True)        
+        return jsonify({"message": "File uploaded & vectorised successfully", "uploaded to": full_path})
 
     return render_template('upload.html')  # Serve the HTML upload form
 
@@ -170,7 +180,7 @@ def update_vectors(cluster_id, force=False, isUpload=False):
     """Download and vectorize documents for the given cluster ID."""
     # Check the path for the cluster
     cluster_path = os.path.join('data', cluster_id)
-    uploads_path = os.path.join('uploads', cluster_id.split('.')[0])
+    uploads_path = os.path.join('uploads', cluster_id)
     # print(f"uploads path : {uploads_path} , cluster_id {cluster_id}")
 
     # Check if the files already exist
@@ -202,12 +212,10 @@ def update_vectors_endpoint(cluster_id):
 def vsEditorHandler():
     data = request.json  # Get JSON body
     print("requst data: {data}")
-    user_mail= data.get("usermail", "")
-    file_name = data.get("fileName", "")
+    user_mail= data.get("usermail", "")    
     user_question = data.get("question", "")
     
-    print(f"user_mail: {user_mail}")
-    print(f"FileName: {file_name}")
+    print(f"user_mail: {user_mail}")    
     print(f"Question: {user_question}")
 
     user_info = get_user_info(user_mail)      
@@ -220,13 +228,16 @@ def vsEditorHandler():
         return jsonify(error_message), 400    
 
     # Get the response using the LLM and vector store
-    response = get_agent_response(user_info['cluster_id'], user_question, user_mail)    
+    response = get_agent_response(user_info['cluster_id'], user_question, user_mail)        
 
     return jsonify({'status': 'Message processed', 'answer': response}), 200    
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# init_webhook is not needed everytime the server is restarted. 
+# I have already tested the webhooks and they are proper in place for now. 
+# when need to create new webhooks and flush older ones we can run the init_webhook
 
-if __name__ == '__main__':        
+if __name__ == '__main__':            
     # init_webhook()    
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     app.run(port=8000, debug=False)

@@ -28,6 +28,7 @@ from flask import render_template
 
 # in memory faiss store
 vector_store = {}
+kb_vector_store = {}
 
 # shifted to redis
 # user information mimicking session 

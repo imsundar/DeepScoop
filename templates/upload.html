@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">   
+
+    <title>DeepScoop Log Analyser</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2c3e50;
+            color: white;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .tagline {
+            font-size: 18px;
+            font-weight: bold;
+            color: #1abc9c;
+            margin-bottom: 30px;
+        }
+
+        .upload-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            width: 400px;
+            text-align: center;
+        }
+
+        .file-input-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .custom-file-upload {
+            background-color: #1abc9c;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            border: none;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .custom-file-upload:hover {
+            background-color: #16a085;
+        }
+
+        #file-list {
+            font-size: 14px;
+            color: #333;
+            text-align: left;
+            max-height: 100px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: #f4f4f4;
+            width: 100%;
+            display: none;
+        }
+
+        button {
+            background-color: #1abc9c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            width: 100%;
+            display: none;
+        }
+
+        button:hover {
+            background-color: #16a085;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="logo">
+        <img src="{{ url_for('static', filename='images/cisco_logo.png') }}" alt="Cisco Logo">
+    </div>
+    
+    <h2>Upload Application logs / documents</h2>
+    <div class="tagline">Hyperflex powered by Google Gemini ! </div>    
+
+    <div class="upload-container">
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            <div class="file-input-container">
+                <label for="folder" class="custom-file-upload">Choose Folder</label>
+                <input type="file" id="folder" name="files" accept=".pdf" multiple webkitdirectory directory onchange="displayFileNames()">
+                <div id="file-list">No files selected</div>
+            </div>
+    
+            <button type="submit" id="upload-button">Upload Files</button>
+        </form>
+    </div>
+
+    <script>
+        function displayFileNames() {
+            const fileInput = document.getElementById('folder');
+            const fileListDiv = document.getElementById('file-list');
+            const uploadButton = document.getElementById('upload-button');
+
+            if (fileInput.files.length > 0) {
+                fileListDiv.style.display = "block";
+                fileListDiv.innerHTML = "<strong>Selected Files:</strong><br>" + 
+                    Array.from(fileInput.files).map(file => file.name).join("<br>");
+                uploadButton.style.display = "block";  
+            } else {
+                fileListDiv.style.display = "none";
+                uploadButton.style.display = "none";
+            }
+        }
+        
+        function showLoadingMessage(event) {
+                event.preventDefault();  
+                const uploadButton = document.getElementById('upload-button');
+                uploadButton.textContent = "Analysing...";
+                uploadButton.style.backgroundColor = "#7f8c8d";  // Grey out the button
+                uploadButton.style.cursor = "not-allowed";
+                uploadButton.disabled = true;  
+
+                setTimeout(() => {
+                    event.target.submit();  
+                }, 100);  
+        }
+
+
+        document.querySelector("form").addEventListener("submit", showLoadingMessage);
+    </script>
+
+</body>
+</html>
+
